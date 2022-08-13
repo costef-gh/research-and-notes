@@ -1,0 +1,66 @@
+BASIC FILE TRANSFER - context (sending files from a database to cloud based object storage)
+
+SFTP - secure file transfer protocol (all platforms), part of SSH (secure shell) protocol, leverages ssh encryption
+SCP - secure copy, command line utility, can only be used with UNIX
+-client/server architecture
+-many operations that can be performed with remote files
+-supports user-to-server and server-to-server configuration
+-commonly configured via ssh public keys
+
+how it works:
+1. transfer request from client system
+2. secure connection established between client/server
+3. server reads request and encrypts file using ssh
+4. transfer of file via SFTP
+5. ssh auth to decrypt and access from client side 
+
+=============ON PREM TO CLOUD DATA MIGRATION=============
+Migration Tool Considerations:
+1) Data volume (network requirements)
+2) Network bandwidth - need significant throughput
+3) transfer frequency 
+
+----------Cloud Ingestion Services------------------
+AWS DataSync - synchronizes data between on-prem and cloud storage
+AWS Storage Gateway - proxy between on-prem and unlimited s3 object store. Supported protocols [iSCSI/SMB/NFS]
+AWS Transfer Family - SFTP/FTP data transfer to S3
+AWS Database Management Service - any database supporting S3 as target destination
+Azure Data Factory - service supporting data movement between storage account and on-premise via copy activity,
+	also compatible with other cloud providers (BigQuery, RDS)
+	
+* In addition to above, command line utils available for accelerated data transfer (AWS = DistCp, Azure = AzCopy, GCP = gsutils)
+
+------Typical Legacy On-premise Data Architecture---------
+1) Multiple OLTP (online transaction processing) systems (example: PoS [point of sale]) producing data each day
+2) data extracted and loaded into a data warehouse (usually nightly, sometimes every 4 hours)
+3) database contains transformed data, optimized for operational reporting
+
+> above architecture has not met need for closer to real-time reporting
+	> direct reporting from OLTP systems carries risk + systems not designed for reporting
+	> however, loadding data into a data warehouse in real time is challenging (RDBMS not designed for streaming ingest)
+	> cloud flexibility can help, can have a single application referencing data in:
+		1) relational database
+		2) data lake
+		3) cloud object storage 
+	> MAJOR ADVANTAGE: with cloud object store, you do not have to be within the same account that produced the data in the 
+	S3 bucket to have acceses to that data (one can even think of ALL data residing on S3 as being part of the same "lake")
+		> expanding on the difference, on premise architecture focuses on isolating data with physical infrastructure,
+		and cloud data storage only necessitates isolating data using security/access policies
+		> dramatically reduces need for data replication (ie copying), generally not necessary to physically copy from 
+		bucket_A to bucket_B
+		> in the case of test vs production data, isolating it at the bucket level does make sense
+	> DATA LAKE KEY CONSIDERATION - governance
+		> extremely important, AWS offers Glue and lake formation as a solution, but also 
+		3rd party governance tools: Collibra, Egnyte, Immuta, Informatica, Talend, Alteryx
+	> MAJOR ADVANTAGE: with cloud native data lakes, there is a decoupling of compute and storage 
+		> with cloud object storage, the data is never "off" - and you can spin up (and turn off) EC2 instances to process 
+		data and run applications on top of your lake as needed 
+		> S3 also integrates natively with a plethora of other AWS tools 
+	> Storage classes for S3:
+		1) standard
+		2) S3 standard IA - infrequently access, long lived
+		3) Glacier - long term archive (can automatically be moved via a lifecycle policy)
+	> OPEN SOURCE STORAGE LAYERS
+		1) Delta Lake (sits on top of data lake) - optimized, snappy parquet format + transaction log (delta format)
+		ACID compliant, more performant, retains all functionality of underlying files 
+		
